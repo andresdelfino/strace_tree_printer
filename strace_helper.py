@@ -1,5 +1,6 @@
 import collections
 import glob
+import os
 import re
 
 
@@ -15,7 +16,9 @@ class StraceTreePrinter:
         child_pids = set()
         pids = set()
 
-        for file in glob.glob(f'{self.prefix}.*'):
+        root_path = os.environ.get('ROOT_PATH', os.getcwd())
+
+        for file in glob.glob(os.path.join(root_path, f'{self.prefix}.*')):
             pid = int(file.split('.')[-1])
             pids.add(pid)
 
