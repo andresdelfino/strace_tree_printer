@@ -41,12 +41,12 @@ options:
 
 PREFIX is the argument passed to the `-o` option of the `strace` execution. Defaults to "output".
 
-ROOT_PATH is the path where the logs are located. Defaults to working directory.
+ROOT_PATH is the path where the logs are located. Defaults to the working directory.
 
 # Output
 
-Output column tells if the command wrote on `stdout` or `stderr`.
+The Output column tells if the command wrote on `stdout` or `stderr`.
 
-Exit column content is red if the exit status is non-zero.
+The Exit column content is red if the exit status is non-zero.
 
-Pathname/Argv column content is ? if no `execve(2)` call was found.
+The Pathname and Argv columns content is "?" if no `execve(2)` call was found.
