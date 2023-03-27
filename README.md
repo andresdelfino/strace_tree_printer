@@ -18,7 +18,7 @@ output.17890  /usr/bin/tbl      out       ?        \_ tbl
 output.17891  /usr/bin/groff        err   3        \_ groff -mandoc -Thtml
 ```
 
-#Installation
+# Installation
 
 On a virtual environment, run:
 
@@ -26,7 +26,7 @@ On a virtual environment, run:
 pip install git+ssh://git@github.com/andresdelfino/strace_tree_printer.git
 ```
 
-#Use
+# Use
 
 ```
 usage: strace_tree_printer [-h] [--prefix PREFIX] [--root-path ROOT_PATH]
@@ -37,9 +37,10 @@ options:
   --root-path ROOT_PATH
 ```
 
-Prefix is the argument passed to the `-o` option of the `strace` execution.
+PREFIX is the argument passed to the `-o` option of the `strace` execution. Defaults to "output".
+ROOT_PATH is the path where the logs are located. Defaults to working directory.
 
-#Output
+# Output
 
 Output column tells if the command wrote on `stdout` or `stderr`.
 Exit column content is red if the exit status is non-zero.
