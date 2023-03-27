@@ -1,3 +1,4 @@
+import argparse
 import collections
 import glob
 import os
@@ -150,13 +151,14 @@ class StraceTreePrinter:
         return data[0], data[1]
 
 
-def main():
-    prefix = os.environ.get('PREFIX', 'output')
-    root_path = os.environ.get('ROOT_PATH', os.getcwd())
+def main() -> int:
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--prefix', default='output')
+    parser.add_argument('--root-path', default=os.getcwd())
 
-    stp = StraceTreePrinter(prefix=prefix, root_path=root_path)
+    args = parser.parse_args()
+
+    stp = StraceTreePrinter(prefix=args.prefix, root_path=args.root_path)
     stp.run()
 
-
-if __name__ == '__main__':
-    main()
+    return 0

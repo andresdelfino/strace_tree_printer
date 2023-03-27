@@ -1,0 +1,18 @@
+[tool.poetry]
+name = "strace_tree_printer"
+version = "0.1.0"
+description = ""
+authors = ["Andrés Delfino <adelfino@gmail.com>"]
+packages = [{include = "strace_tree_printer"}]
+
+[tool.poetry.dependencies]
+python = "^3.9"
+
+tabulate = "*"
+
+[tool.poetry.scripts]
+strace_tree_printer = "strace_tree_printer:main"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
