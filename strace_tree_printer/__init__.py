@@ -120,9 +120,11 @@ class StraceTreePrinter:
         for child in self.childs[node]:
             self.fill_table(child, level=level + 1)
 
-    def parse_argv_env(self, line: str) -> tuple[list[str], list[str]]:
+    @staticmethod
+    def parse_argv_env(line: str) -> tuple[list[str], list[str]]:
         data = []
 
+        words = []
         skip_char = False
         reading_word = False
 
@@ -139,11 +141,9 @@ class StraceTreePrinter:
                 else:
                     word += char
             else:
-                if char == '[':
-                    words = []
-                elif char == ']':
-                    data.append(words)
-                    del words
+                if char == ']':
+                    data.append(words.copy())
+                    words.clear()
                 elif char == '"':
                     reading_word = True
                     word = ''
