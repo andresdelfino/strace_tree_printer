@@ -45,7 +45,7 @@ ROOT_PATH is the path where the logs are located. Defaults to the working direct
 
 # Output
 
-The Output column tells if the command wrote on `stdout` or `stderr`.
+The Output column tells if the command wrote to `stdout` or `stderr`.
 
 The Exit column content is red if the exit status is non-zero.
 
