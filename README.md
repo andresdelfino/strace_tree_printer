@@ -47,6 +47,6 @@ ROOT_PATH is the path where the logs are located. Defaults to the working direct
 
 The Output column tells if the command wrote to `stdout` or `stderr`.
 
-The Exit column content is red if the exit status is non-zero.
+The Exit column content is red if the exit status is non-zero. An exit status of "?" means the thread was terminated by another thread of the same thread group (see `exit_group(2)`).
 
 The Pathname and Argv columns content is "?" if no `execve(2)` call was found.
