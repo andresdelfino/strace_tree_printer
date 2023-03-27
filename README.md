@@ -1,6 +1,8 @@
+# Description
+
 `strace_tree_printer` prints a tree out of a set of logs produced by an `strace` execution that used flags `-f`, `-ff`, and option `-o`.
 
-Example:
+# Example
 
 After running `strace -f -ff -o output -s 10000 -t -v man -H man`, `strace_tree_printer` outputs:
 
