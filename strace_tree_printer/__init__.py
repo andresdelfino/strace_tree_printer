@@ -11,7 +11,7 @@ tabulate.PRESERVE_WHITESPACE = True
 
 
 class StraceTreePrinter:
-    CHILD_PID_RE = r'^(clone|__clone2|clone3)\(.+?(\d+)$'
+    CHILD_PID_RE = r'^(clone|clone3|fork|vfork)\(.+?(\d+)$'
     COMMAND_RE = r'^execve\((.+?)\) = 0'
     EXIT_STATUS_RE = r'^exit_group\((\d+)\)'
 
@@ -22,6 +22,7 @@ class StraceTreePrinter:
         self.childs = collections.defaultdict(list)
         self.pathnames = {}
         self.argvs = {}
+        self.envps = {}
         self.exit_statuses = {}
         self.data = []
         self.stdout = set()
@@ -51,9 +52,9 @@ class StraceTreePrinter:
 
                     command_match = re.search(self.COMMAND_RE, line)
                     if command_match:
-                        pathname, argv_env = command_match[1].split(', ', maxsplit=1)
+                        pathname, argv_envp = command_match[1].split(', ', maxsplit=1)
                         self.pathnames[pid] = pathname[1:-1]
-                        self.argvs[pid] = ' '.join(self.parse_argv_env(argv_env)[0])
+                        self.argvs[pid], self.envps[pid] = self.parse_argv_envp(argv_envp)
                         continue
 
                     exit_status_match = re.search(self.EXIT_STATUS_RE, line)
@@ -70,6 +71,7 @@ class StraceTreePrinter:
 
         root_pid = (pids - child_pids).pop()
 
+        self.write_envp_files()
         self.fill_table(root_pid)
 
         tabulated_data = tabulate.tabulate(
@@ -105,7 +107,12 @@ class StraceTreePrinter:
         log = f'{self.prefix}.{node}'
         pathname = self.pathnames.get(node, '?')
         output = f'{stdout} {stderr}'
-        argv = padding + self.argvs.get(node, '?')
+
+        if node in self.argvs:
+            argv = ' '.join(self.argvs[node])
+        else:
+            argv = '?'
+        formatted_argv = padding + argv
 
         self.data.append(
             (
@@ -113,7 +120,7 @@ class StraceTreePrinter:
                 pathname,
                 output,
                 formatted_exit_status,
-                argv,
+                formatted_argv,
             )
         )
 
@@ -121,7 +128,7 @@ class StraceTreePrinter:
             self.fill_table(child, level=level + 1)
 
     @staticmethod
-    def parse_argv_env(line: str) -> tuple[list[str], list[str]]:
+    def parse_argv_envp(line: str) -> tuple[list[str], list[str]]:
         data = []
 
         words = []
@@ -149,6 +156,12 @@ class StraceTreePrinter:
                     word = ''
 
         return data[0], data[1]
+
+    def write_envp_files(self) -> None:
+        for pid, envp in self.envps.items():
+            with open(f'{pid}.envp', 'w') as f:
+                for var in envp:
+                    f.write(f'{var}\n')
 
 
 def main() -> int:
