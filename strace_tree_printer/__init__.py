@@ -15,10 +15,9 @@ class StraceTreePrinter:
     COMMAND_RE = r'^execve\((.+?)\) = 0'
     EXIT_STATUS_RE = r'^(exit|exit_group)\((\d+)\)'
 
-    def __init__(self, *, root_path: str, prefix: str, format_exit_status: bool) -> None:
+    def __init__(self, *, root_path: str, prefix: str) -> None:
         self.root_path = root_path
         self.prefix = prefix
-        self.format_exit_status = format_exit_status
 
         self.argvs = {}
         self.childs = collections.defaultdict(list)
@@ -99,7 +98,7 @@ class StraceTreePrinter:
             padding = ' ' * (level - 1) * 4 + ' \\_ '
 
         exit_status = self.exit_statuses.get(node, '?')
-        if exit_status != 0 and self.format_exit_status:
+        if exit_status != 0 and 'NO_COLOR' not in os.environ:
             formatted_exit_status = f'\033[91m{exit_status}\033[0m'
         else:
             formatted_exit_status = exit_status
@@ -109,7 +108,7 @@ class StraceTreePrinter:
         if node in self.pathnames:
             pathname = self.pathnames[node]
         else:
-            pathname = self.pathnames[self.parent[node]]
+            pathname = self.pathnames[self.parents[node]]
 
         stdout = 'out' if node in self.stdout else '   '
         stderr = 'err' if node in self.stderr else '   '
@@ -118,7 +117,7 @@ class StraceTreePrinter:
         if node in self.argvs:
             argv = ' '.join(self.argvs[node])
         else:
-            argv = ' '.join(self.argvs[self.parent[node]])
+            argv = ' '.join(self.argvs[self.parents[node]])
 
         formatted_argv = padding + argv
 
@@ -174,13 +173,12 @@ class StraceTreePrinter:
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument('--format-exit-status', action='store_true')
     parser.add_argument('--prefix', default='output')
     parser.add_argument('--root-path', default=os.getcwd())
 
     args = parser.parse_args()
 
-    stp = StraceTreePrinter(prefix=args.prefix, root_path=args.root_path, format_exit_status=args.format_exit_status)
+    stp = StraceTreePrinter(prefix=args.prefix, root_path=args.root_path)
     stp.run()
 
     return 0
