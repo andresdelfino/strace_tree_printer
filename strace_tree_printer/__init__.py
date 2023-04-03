@@ -15,18 +15,20 @@ class StraceTreePrinter:
     COMMAND_RE = r'^execve\((.+?)\) = 0'
     EXIT_STATUS_RE = r'^(exit|exit_group)\((\d+)\)'
 
-    def __init__(self, *, root_path: str, prefix: str) -> None:
+    def __init__(self, *, root_path: str, prefix: str, format_exit_status: bool) -> None:
         self.root_path = root_path
         self.prefix = prefix
+        self.format_exit_status = format_exit_status
 
-        self.childs = collections.defaultdict(list)
-        self.pathnames = {}
         self.argvs = {}
+        self.childs = collections.defaultdict(list)
+        self.data = []
         self.envps = {}
         self.exit_statuses = {}
-        self.data = []
-        self.stdout = set()
+        self.parents = {}
+        self.pathnames = {}
         self.stderr = set()
+        self.stdout = set()
 
     def run(self) -> None:
         pids = set()
@@ -66,6 +68,7 @@ class StraceTreePrinter:
                     if child_pid_match:
                         child_pid = int(child_pid_match[2])
                         self.childs[pid].append(child_pid)
+                        self.parents[child_pid] = pid
                         child_pids.add(child_pid)
                         continue
 
@@ -95,23 +98,28 @@ class StraceTreePrinter:
         else:
             padding = ' ' * (level - 1) * 4 + ' \\_ '
 
-        stdout = 'out' if node in self.stdout else '   '
-        stderr = 'err' if node in self.stderr else '   '
-
         exit_status = self.exit_statuses.get(node, '?')
-        if exit_status != 0:
+        if exit_status != 0 and self.format_exit_status:
             formatted_exit_status = f'\033[91m{exit_status}\033[0m'
         else:
             formatted_exit_status = exit_status
 
         log = f'{self.prefix}.{node}'
-        pathname = self.pathnames.get(node, '?')
+
+        if node in self.pathnames:
+            pathname = self.pathnames[node]
+        else:
+            pathname = self.pathnames[self.parent[node]]
+
+        stdout = 'out' if node in self.stdout else '   '
+        stderr = 'err' if node in self.stderr else '   '
         output = f'{stdout} {stderr}'
 
         if node in self.argvs:
             argv = ' '.join(self.argvs[node])
         else:
-            argv = '?'
+            argv = ' '.join(self.argvs[self.parent[node]])
+
         formatted_argv = padding + argv
 
         self.data.append(
@@ -166,12 +174,13 @@ class StraceTreePrinter:
 
 def main() -> int:
     parser = argparse.ArgumentParser()
+    parser.add_argument('--format-exit-status', action='store_true')
     parser.add_argument('--prefix', default='output')
     parser.add_argument('--root-path', default=os.getcwd())
 
     args = parser.parse_args()
 
-    stp = StraceTreePrinter(prefix=args.prefix, root_path=args.root_path)
+    stp = StraceTreePrinter(prefix=args.prefix, root_path=args.root_path, format_exit_status=args.format_exit_status)
     stp.run()
 
     return 0
