@@ -25,7 +25,7 @@ output.17891  /usr/bin/groff        err   3        \_ groff -mandoc -Thtml
 On a virtual environment, run:
 
 ```
-pip install git+ssh://git@github.com/andresdelfino/strace_tree_printer.git
+pip install git+https://github.com/andresdelfino/strace_tree_printer.git
 ```
 
 # Use
@@ -50,3 +50,7 @@ The Output column tells if the command wrote to `stdout` or `stderr`.
 The Exit column content is red if the exit status is non-zero. An exit status of "?" means the thread was terminated by another thread of the same thread group (see `exit_group(2)`).
 
 The Pathname and Argv columns content is "?" if no `execve(2)` call was found.
+
+# See also
+
+[Marius Gedminas](https://github.com/mgedmin)'s [strace-process-tree](https://github.com/mgedmin/strace-process-tree).

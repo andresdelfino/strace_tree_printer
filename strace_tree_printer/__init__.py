@@ -13,7 +13,7 @@ tabulate.PRESERVE_WHITESPACE = True
 class StraceTreePrinter:
     CHILD_PID_RE = r'^(clone|clone3|fork|vfork)\(.+?(\d+)$'
     COMMAND_RE = r'^execve\((.+?)\) = 0'
-    EXIT_STATUS_RE = r'^exit_group\((\d+)\)'
+    EXIT_STATUS_RE = r'^(exit|exit_group)\((\d+)\)|'
 
     def __init__(self, *, root_path: str, prefix: str) -> None:
         self.root_path = root_path
@@ -59,7 +59,7 @@ class StraceTreePrinter:
 
                     exit_status_match = re.search(self.EXIT_STATUS_RE, line)
                     if exit_status_match:
-                        self.exit_statuses[pid] = int(exit_status_match[1])
+                        self.exit_statuses[pid] = int(exit_status_match[2])
                         continue
 
                     child_pid_match = re.search(self.CHILD_PID_RE, line)
