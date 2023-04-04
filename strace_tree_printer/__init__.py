@@ -20,6 +20,7 @@ class StraceTreePrinter:
         self.prefix = prefix
 
         self.argvs = {}
+        self.child_pids = set()
         self.childs = collections.defaultdict(list)
         self.data = []
         self.envps = {}
@@ -31,7 +32,6 @@ class StraceTreePrinter:
 
     def run(self) -> None:
         pids = set()
-        child_pids = set()
 
         globbing_pathname = os.path.join(self.root_path, f'{self.prefix}.*')
 
@@ -68,10 +68,10 @@ class StraceTreePrinter:
                         child_pid = int(child_pid_match[2])
                         self.childs[pid].append(child_pid)
                         self.parents[child_pid] = pid
-                        child_pids.add(child_pid)
+                        self.child_pids.add(child_pid)
                         continue
 
-        root_pid = (pids - child_pids).pop()
+        root_pid = (pids - self.child_pids).pop()
 
         self.write_envp_files()
         self.fill_table(root_pid)
@@ -98,26 +98,25 @@ class StraceTreePrinter:
             padding = ' ' * (level - 1) * 4 + ' \\_ '
 
         exit_status = self.exit_statuses.get(node, '?')
-        if exit_status != 0 and 'NO_COLOR' not in os.environ:
-            formatted_exit_status = f'\033[91m{exit_status}\033[0m'
-        else:
-            formatted_exit_status = exit_status
 
         log = f'{self.prefix}.{node}'
-
-        if node in self.pathnames:
-            pathname = self.pathnames[node]
-        else:
-            pathname = self.pathnames[self.parents[node]]
 
         stdout = 'out' if node in self.stdout else '   '
         stderr = 'err' if node in self.stderr else '   '
         output = f'{stdout} {stderr}'
 
+        if node not in self.pathnames:
+            elder_parent = self.find_elder_parent(node)
+
+        if node in self.pathnames:
+            pathname = self.pathnames[node]
+        else:
+            pathname = '# ' + self.pathnames[elder_parent]
+
         if node in self.argvs:
             argv = ' '.join(self.argvs[node])
         else:
-            argv = ' '.join(self.argvs[self.parents[node]])
+            argv = '# ' + ' '.join(self.argvs[elder_parent])
 
         formatted_argv = padding + argv
 
@@ -126,13 +125,19 @@ class StraceTreePrinter:
                 log,
                 pathname,
                 output,
-                formatted_exit_status,
+                exit_status,
                 formatted_argv,
             )
         )
 
         for child in self.childs[node]:
             self.fill_table(child, level=level + 1)
+
+    def find_elder_parent(self, node: int) -> int:
+        if self.parents[node] in self.pathnames:
+            return self.parents[node]
+        else:
+            return self.find_elder_parent(self.parents[node])
 
     @staticmethod
     def parse_argv_envp(line: str) -> tuple[list[str], list[str]]:

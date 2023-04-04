@@ -4,20 +4,21 @@
 
 # Example
 
-After running `strace -f -ff -o output -s 10000 -t -v man -H man`, `strace_tree_printer` outputs:
+After running `strace -f -ff -o output -s 10000 -tt -v man -H man`, `strace_tree_printer` outputs:
 
 ```
 Log           Pathname          Output    Exit    Argv
 ------------  ----------------  --------  ------  ------------------------
-output.17885  /usr/bin/man          err   3       man -H man
-output.17886  ?                 out       0        \_ ?
-output.17887  ?                 out       0        \_ ?
-output.17893  ?                 out       0            \_ ?
-output.17888  ?                 out       0        \_ ?
-output.17892  ?                 out       0            \_ ?
-output.17889  /usr/bin/preconv  out       ?        \_ preconv -e UTF-8
-output.17890  /usr/bin/tbl      out       ?        \_ tbl
-output.17891  /usr/bin/groff        err   3        \_ groff -mandoc -Thtml
+output.23149  /usr/bin/man          err   3       man -H man
+output.23150  # /usr/bin/man    out       0        \_ # man -H man
+output.23151  # /usr/bin/man    out       0        \_ # man -H man
+output.23157  # /usr/bin/man    out       0            \_ # man -H man
+output.23152  # /usr/bin/man    out       0        \_ # man -H man
+output.23156  # /usr/bin/man    out       0            \_ # man -H man
+output.23153  /usr/bin/preconv  out       ?        \_ preconv -e UTF-8
+output.23154  /usr/bin/tbl      out       ?        \_ tbl
+output.23155  /usr/bin/groff        err   3        \_ groff -mandoc -Thtml
+
 ```
 
 # Installation
@@ -47,9 +48,9 @@ ROOT_PATH is the path where the logs are located. Defaults to the working direct
 
 The Output column tells if the command wrote to `stdout` or `stderr`.
 
-The Exit column content is red if the exit status is non-zero. An exit status of "?" means the thread was terminated by another thread of the same thread group (see `exit_group(2)`).
+An exit status of "?" means the thread was terminated by another thread of the same thread group (see `exit_group(2)`).
 
-The Pathname and Argv columns content is "?" if no `execve(2)` call was found.
+A number sign preceding a pathname and argv means the content mirrors the values of the child's parent, as no `execve(2)` call was found.
 
 # See also
 
