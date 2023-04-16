@@ -15,6 +15,8 @@ class StraceTreePrinter:
     COMMAND_RE = r'^execve\((.+?)\) = 0'
     EXIT_STATUS_RE = r'^(exit|exit_group)\((\d+)\)'
 
+    INHERITED_MARK = '!'
+
     def __init__(self, *, root_path: str, prefix: str) -> None:
         self.root_path = root_path
         self.prefix = prefix
@@ -73,6 +75,13 @@ class StraceTreePrinter:
 
         root_pid = (pids - self.child_pids).pop()
 
+        if root_pid not in self.pathnames:
+            # strace was run with --attach
+            self.pathnames[root_pid] = '(attached process)'
+            self.argvs[root_pid] = ['(attached process)']
+
+        self.parents[root_pid] = 0
+
         self.write_envp_files()
         self.fill_table(root_pid)
 
@@ -80,6 +89,7 @@ class StraceTreePrinter:
             self.data,
             headers=[
                 'Log',
+                'PPID',
                 'Pathname',
                 'Output',
                 'Exit',
@@ -111,18 +121,19 @@ class StraceTreePrinter:
         if node in self.pathnames:
             pathname = self.pathnames[node]
         else:
-            pathname = '# ' + self.pathnames[elder_parent]
+            pathname = self.pathnames[elder_parent] + f' {self.INHERITED_MARK}'
 
         if node in self.argvs:
             argv = ' '.join(self.argvs[node])
         else:
-            argv = '# ' + ' '.join(self.argvs[elder_parent])
+            argv = ' '.join(self.argvs[elder_parent]) + f' {self.INHERITED_MARK}'
 
         formatted_argv = padding + argv
 
         self.data.append(
             (
                 log,
+                self.parents[node],
                 pathname,
                 output,
                 exit_status,
