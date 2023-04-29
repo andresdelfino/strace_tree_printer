@@ -22,15 +22,18 @@ class StraceTreePrinter:
         self.prefix = prefix
 
         self.argvs = {}
+        self.child_calls = {}
         self.child_pids = set()
         self.childs = collections.defaultdict(list)
         self.data = []
         self.envps = {}
         self.exit_statuses = {}
+        self.first_entries = {}
+        self.last_entries = {}
         self.parents = {}
         self.pathnames = {}
-        self.stderr = set()
-        self.stdout = set()
+        self.pids_that_wrote_to_stderr = set()
+        self.pids_that_wrote_to_stdout = set()
 
     def run(self) -> None:
         pids = set()
@@ -39,18 +42,22 @@ class StraceTreePrinter:
 
         for file in glob.glob(globbing_pathname):
             pid = int(file.split('.')[-1])
+
             pids.add(pid)
 
             with open(file) as f:
                 for line in f:
-                    line = line.split(maxsplit=1)[1]
+                    timestamp, line = line.split(maxsplit=1)
+
+                    if pid not in self.first_entries:
+                        self.first_entries[pid] = timestamp
 
                     if line.startswith('write(1,'):
-                        self.stdout.add(pid)
+                        self.pids_that_wrote_to_stdout.add(pid)
                         continue
 
                     if line.startswith('write(2,'):
-                        self.stderr.add(pid)
+                        self.pids_that_wrote_to_stderr.add(pid)
                         continue
 
                     command_match = re.search(self.COMMAND_RE, line)
@@ -70,25 +77,32 @@ class StraceTreePrinter:
                         child_pid = int(child_pid_match[2])
                         self.childs[pid].append(child_pid)
                         self.parents[child_pid] = pid
+                        self.child_calls[child_pid] = child_pid_match[1]
                         self.child_pids.add(child_pid)
                         continue
 
-        root_pid = (pids - self.child_pids).pop()
+            self.last_entries[pid] = timestamp
 
-        if root_pid not in self.pathnames:
+        self.root_pid = (pids - self.child_pids).pop()
+
+        if self.root_pid not in self.pathnames:
             # strace was run with --attach
-            self.pathnames[root_pid] = '(attached process)'
-            self.argvs[root_pid] = ['(attached process)']
+            self.pathnames[self.root_pid] = '---'
+            self.argvs[self.root_pid] = ['---']
+            self.child_calls[self.root_pid] = '---'
 
-        self.parents[root_pid] = 0
+        self.parents[self.root_pid] = '---'
 
         self.write_envp_files()
-        self.fill_table(root_pid)
+        self.fill_table(self.root_pid)
 
         tabulated_data = tabulate.tabulate(
             self.data,
             headers=[
                 'Log',
+                'Call',
+                'First entry',
+                'Last entry',
                 'PPID',
                 'Pathname',
                 'Output',
@@ -111,8 +125,12 @@ class StraceTreePrinter:
 
         log = f'{self.prefix}.{node}'
 
-        stdout = 'out' if node in self.stdout else '   '
-        stderr = 'err' if node in self.stderr else '   '
+        call = self.child_calls[node]
+        first_entry = self.first_entries[node]
+        last_entry = self.last_entries[node]
+
+        stdout = 'out' if node in self.pids_that_wrote_to_stdout else '   '
+        stderr = 'err' if node in self.pids_that_wrote_to_stderr else '   '
         output = f'{stdout} {stderr}'
 
         if node not in self.pathnames:
@@ -133,6 +151,9 @@ class StraceTreePrinter:
         self.data.append(
             (
                 log,
+                call,
+                first_entry,
+                last_entry,
                 self.parents[node],
                 pathname,
                 output,
