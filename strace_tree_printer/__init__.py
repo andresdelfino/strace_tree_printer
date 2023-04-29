@@ -24,7 +24,7 @@ class StraceTreePrinter:
         self.prefix = prefix
 
         self.argvs: dict[int, list[str]] = {}
-        self.child_calls: dict[int, str] = {}
+        self.calls: dict[int, str] = {}
         self.child_pids: set[int] = set()
         self.childs: dict[int, list[int]] = collections.defaultdict(list)
         self.data: list[tuple[str, str, str, str, int | Literal['?'], str, str, int | Literal['?'], str]] = []
@@ -79,7 +79,7 @@ class StraceTreePrinter:
                         child_pid = int(child_pid_match[2])
                         self.childs[pid].append(child_pid)
                         self.parents[child_pid] = pid
-                        self.child_calls[child_pid] = child_pid_match[1]
+                        self.calls[child_pid] = child_pid_match[1]
                         self.child_pids.add(child_pid)
                         continue
 
@@ -94,7 +94,7 @@ class StraceTreePrinter:
             # strace was run with --attach
             self.pathnames[self.root_pid] = '?'
             self.argvs[self.root_pid] = ['?']
-            self.child_calls[self.root_pid] = '?'
+            self.calls[self.root_pid] = '?'
 
         self.parents[self.root_pid] = '?'
 
@@ -125,9 +125,11 @@ class StraceTreePrinter:
 
         log = f'{self.prefix}.{node}'
 
-        call = self.child_calls[node]
+        call = self.calls[node]
         first_entry = self.first_entries[node]
         last_entry = self.last_entries[node]
+
+        parent = self.parents[node]
 
         stdout = 'out' if node in self.pids_that_wrote_to_stdout else '   '
         stderr = 'err' if node in self.pids_that_wrote_to_stderr else '   '
@@ -154,7 +156,7 @@ class StraceTreePrinter:
                 call,
                 first_entry,
                 last_entry,
-                self.parents[node],
+                parent,
                 pathname,
                 output,
                 exit_status,
