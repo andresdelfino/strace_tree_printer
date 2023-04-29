@@ -4,6 +4,8 @@ import glob
 import os
 import re
 
+from typing import Literal
+
 import tabulate
 
 
@@ -21,19 +23,19 @@ class StraceTreePrinter:
         self.root_path = root_path
         self.prefix = prefix
 
-        self.argvs = {}
-        self.child_calls = {}
-        self.child_pids = set()
-        self.childs = collections.defaultdict(list)
-        self.data = []
-        self.envps = {}
-        self.exit_statuses = {}
-        self.first_entries = {}
-        self.last_entries = {}
-        self.parents = {}
-        self.pathnames = {}
-        self.pids_that_wrote_to_stderr = set()
-        self.pids_that_wrote_to_stdout = set()
+        self.argvs: dict[int, list[str]] = {}
+        self.child_calls: dict[int, str] = {}
+        self.child_pids: set[int] = set()
+        self.childs: dict[int, list[int]] = collections.defaultdict(list)
+        self.data: list[tuple[str, str, str, str, int | Literal['?'], str, str, int | Literal['?'], str]] = []
+        self.envps: dict[int, list[str]] = {}
+        self.exit_statuses: dict[int, int | Literal['?']] = {}
+        self.first_entries: dict[int, str] = {}
+        self.last_entries: dict[int, str] = {}
+        self.parents: dict[int, int | Literal['?']] = {}
+        self.pathnames: dict[int, str] = {}
+        self.pids_that_wrote_to_stderr: set[int] = set()
+        self.pids_that_wrote_to_stdout: set[int] = set()
 
     def run(self) -> None:
         pids = set()
@@ -81,19 +83,22 @@ class StraceTreePrinter:
                         self.child_pids.add(child_pid)
                         continue
 
+            if pid not in self.exit_statuses:
+                self.exit_statuses[pid] = '?'
+
             self.last_entries[pid] = timestamp
 
         self.root_pid = (pids - self.child_pids).pop()
 
         if self.root_pid not in self.pathnames:
             # strace was run with --attach
-            self.pathnames[self.root_pid] = '---'
-            self.argvs[self.root_pid] = ['---']
-            self.child_calls[self.root_pid] = '---'
+            self.pathnames[self.root_pid] = '?'
+            self.argvs[self.root_pid] = ['?']
+            self.child_calls[self.root_pid] = '?'
 
-        self.parents[self.root_pid] = '---'
+        self.parents[self.root_pid] = '?'
 
-        self.write_envp_files()
+    def print_table(self) -> None:
         self.fill_table(self.root_pid)
 
         tabulated_data = tabulate.tabulate(
@@ -113,15 +118,10 @@ class StraceTreePrinter:
 
         print(tabulated_data)
 
-    def fill_table(self, node: int, level: str = 0) -> None:
-        if level == 0:
-            padding = ''
-        elif level == 1:
-            padding = ' \\_ '
-        else:
-            padding = ' ' * (level - 1) * 4 + ' \\_ '
+    def fill_table(self, node: int, level: int = 1) -> None:
+        padding = ' ' * (level - 1) * 4
 
-        exit_status = self.exit_statuses.get(node, '?')
+        exit_status = self.exit_statuses[node]
 
         log = f'{self.prefix}.{node}'
 
@@ -133,7 +133,7 @@ class StraceTreePrinter:
         stderr = 'err' if node in self.pids_that_wrote_to_stderr else '   '
         output = f'{stdout} {stderr}'
 
-        if node not in self.pathnames:
+        if node != self.root_pid and node not in self.pathnames:
             elder_parent = self.find_elder_parent(node)
 
         if node in self.pathnames:
@@ -173,11 +173,17 @@ class StraceTreePrinter:
 
     @staticmethod
     def parse_argv_envp(line: str) -> tuple[list[str], list[str]]:
-        data = []
+        data: dict[str, list[str]] = {
+            'argv': [],
+            'envp': [],
+        }
 
+        key = 'argv'
         words = []
         skip_char = False
         reading_word = False
+
+        word: str
 
         for char in line:
             if reading_word:
@@ -193,13 +199,14 @@ class StraceTreePrinter:
                     word += char
             else:
                 if char == ']':
-                    data.append(words.copy())
+                    data[key] = words.copy()
+                    key = 'envp'
                     words.clear()
                 elif char == '"':
                     reading_word = True
                     word = ''
 
-        return data[0], data[1]
+        return data['argv'], data['envp']
 
     def write_envp_files(self) -> None:
         for pid, envp in self.envps.items():
@@ -217,5 +224,7 @@ def main() -> int:
 
     stp = StraceTreePrinter(prefix=args.prefix, root_path=args.root_path)
     stp.run()
+    stp.write_envp_files()
+    stp.print_table()
 
     return 0
