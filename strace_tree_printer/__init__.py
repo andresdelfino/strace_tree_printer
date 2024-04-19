@@ -187,20 +187,20 @@ class StraceTreePrinter:
         skip_char = False
         reading_word = False
 
-        word: str
+        word_chars: list[str] = []
 
         for char in line:
             if reading_word:
                 if skip_char:
                     skip_char = False
-                    word += char
+                    word_chars.append(char)
                 elif char == '\\':
                     skip_char = True
                 elif char == '"':
                     reading_word = False
-                    words.append(word)
+                    words.append(''.join(word_chars))
                 else:
-                    word += char
+                    word_chars.append(char)
             else:
                 if char == ']':
                     data[key] = words.copy()
@@ -208,7 +208,7 @@ class StraceTreePrinter:
                     words.clear()
                 elif char == '"':
                     reading_word = True
-                    word = ''
+                    word_chars.clear()
 
         return data['argv'], data['envp']
 
