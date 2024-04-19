@@ -90,7 +90,9 @@ class StraceTreePrinter:
 
         self.root_pid = (pids - self.child_pids).pop()
 
-        if self.root_pid not in self.pathnames:
+        if self.root_pid in self.pathnames:
+            self.calls[self.root_pid] = 'execve'
+        else:
             # strace was run with --attach
             self.pathnames[self.root_pid] = '?'
             self.argvs[self.root_pid] = ['?']
