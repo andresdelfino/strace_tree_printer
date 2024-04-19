@@ -7,17 +7,17 @@
 After running `strace -f -ff -o output -s 10000 -tt -v man -H man`, `strace_tree_printer` outputs:
 
 ```
-Log           Pathname          Output    Exit    Argv
-------------  ----------------  --------  ------  ------------------------
-output.23149  /usr/bin/man          err   3       man -H man
-output.23150  # /usr/bin/man    out       0        \_ # man -H man
-output.23151  # /usr/bin/man    out       0        \_ # man -H man
-output.23157  # /usr/bin/man    out       0            \_ # man -H man
-output.23152  # /usr/bin/man    out       0        \_ # man -H man
-output.23156  # /usr/bin/man    out       0            \_ # man -H man
-output.23153  /usr/bin/preconv  out       ?        \_ preconv -e UTF-8
-output.23154  /usr/bin/tbl      out       ?        \_ tbl
-output.23155  /usr/bin/groff        err   3        \_ groff -mandoc -Thtml
+Log           Call    First entry      Last entry       PPID    Pathname          Output    Exit    Argv
+------------  ------  ---------------  ---------------  ------  ----------------  --------  ------  ------------------------
+output.28124  execve  21:31:58.884560  21:31:58.928956  ?       /usr/bin/man          err   3       man -H man
+output.28125  clone   21:31:58.912443  21:31:58.915788  28124   /usr/bin/man !    out       0           man -H man !
+output.28126  clone   21:31:58.915801  21:31:58.925521  28124   /usr/bin/man !    out       0           man -H man !
+output.28131  clone   21:31:58.920371  21:31:58.924343  28126   /usr/bin/man !    out       0               man -H man !
+output.28127  clone   21:31:58.916126  21:31:58.927320  28124   /usr/bin/man !    out       0           man -H man !
+output.28132  clone   21:31:58.920347  21:31:58.926392  28127   /usr/bin/man !    out       0               man -H man !
+output.28128  clone   21:31:58.916359  21:31:58.928313  28124   /usr/bin/preconv  out       ?           preconv -e UTF-8
+output.28129  clone   21:31:58.916646  21:31:58.928125  28124   /usr/bin/tbl      out       ?           tbl
+output.28130  clone   21:31:58.916915  21:31:58.927467  28124   /usr/bin/groff        err   3           groff -mandoc -Thtml
 
 ```
 
@@ -50,7 +50,7 @@ The Output column tells if the command wrote to `stdout` or `stderr`.
 
 An exit status of "?" means the thread was terminated by another thread of the same thread group (see `exit_group(2)`).
 
-A number sign preceding a pathname and argv means the content mirrors the values of the child's parent, as no `execve(2)` call was found.
+An exclamation mark following a pathname or argv means the preceding value mirrors the values of the child's parent, as no `execve(2)` call was found.
 
 # See also
 
