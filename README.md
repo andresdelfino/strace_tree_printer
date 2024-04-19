@@ -23,13 +23,13 @@ output.28130  clone   21:31:58.916915  21:31:58.927467  28124   /usr/bin/groff  
 
 # Installation
 
-On a virtual environment, run:
+Run:
 
 ```
 pip install git+https://github.com/andresdelfino/strace_tree_printer.git
 ```
 
-# Use
+# Usage
 
 ```
 usage: strace_tree_printer [-h] [--prefix PREFIX] [--root-path ROOT_PATH]
