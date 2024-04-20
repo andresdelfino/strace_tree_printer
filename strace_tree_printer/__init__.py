@@ -9,15 +9,13 @@ from typing import Literal
 import tabulate
 
 
-tabulate.PRESERVE_WHITESPACE = True
-
-
 class StraceTreePrinter:
     CHILD_PID_RE = r'^(clone|clone3|fork|vfork)\(.+?(\d+)$'
     COMMAND_RE = r'^execve\((.+?)\) = 0'
     EXIT_STATUS_RE = r'^(exit|exit_group)\((\d+)\)'
 
     INHERITED_MARK = '!'
+    UNKNOWN_MARK = '?'
 
     def __init__(self, *, root_path: str, prefix: str) -> None:
         self.root_path = root_path
@@ -27,12 +25,12 @@ class StraceTreePrinter:
         self.calls: dict[int, str] = {}
         self.child_pids: set[int] = set()
         self.childs: dict[int, list[int]] = collections.defaultdict(list)
-        self.data: list[tuple[str, str, str, str, int | Literal['?'], str, str, int | Literal['?'], str]] = []
+        self.data: list[tuple[str, str, str, str, int | Literal[self.UNKNOWN_MARK], str, str, int | Literal[self.UNKNOWN_MARK], str]] = []
         self.envps: dict[int, list[str]] = {}
-        self.exit_statuses: dict[int, int | Literal['?']] = {}
+        self.exit_statuses: dict[int, int | Literal[self.UNKNOWN_MARK]] = {}
         self.first_entries: dict[int, str] = {}
         self.last_entries: dict[int, str] = {}
-        self.parents: dict[int, int | Literal['?']] = {}
+        self.parents: dict[int, int | Literal[self.UNKNOWN_MARK]] = {}
         self.pathnames: dict[int, str] = {}
         self.pids_that_wrote_to_stderr: set[int] = set()
         self.pids_that_wrote_to_stdout: set[int] = set()
@@ -84,7 +82,7 @@ class StraceTreePrinter:
                         continue
 
             if pid not in self.exit_statuses:
-                self.exit_statuses[pid] = '?'
+                self.exit_statuses[pid] = self.UNKNOWN_MARK
 
             self.last_entries[pid] = timestamp
 
@@ -94,15 +92,16 @@ class StraceTreePrinter:
             self.calls[self.root_pid] = 'execve'
         else:
             # strace was run with --attach
-            self.pathnames[self.root_pid] = '?'
-            self.argvs[self.root_pid] = ['?']
-            self.calls[self.root_pid] = '?'
+            self.pathnames[self.root_pid] = self.UNKNOWN_MARK
+            self.argvs[self.root_pid] = [self.UNKNOWN_MARK]
+            self.calls[self.root_pid] = self.UNKNOWN_MARK
 
-        self.parents[self.root_pid] = '?'
+        self.parents[self.root_pid] = self.UNKNOWN_MARK
 
     def print_table(self) -> None:
         self.fill_table(self.root_pid)
 
+        tabulate.PRESERVE_WHITESPACE = True
         tabulated_data = tabulate.tabulate(
             self.data,
             headers=[
@@ -117,6 +116,7 @@ class StraceTreePrinter:
                 'Argv',
             ]
         )
+        tabulate.PRESERVE_WHITESPACE = False
 
         print(tabulated_data)
 
@@ -177,12 +177,15 @@ class StraceTreePrinter:
 
     @staticmethod
     def parse_argv_envp(line: str) -> tuple[list[str], list[str]]:
+        ARGV_KEY = 'argv'
+        ENVP_KEY = 'envp'
+
         data: dict[str, list[str]] = {
-            'argv': [],
-            'envp': [],
+            ARGV_KEY: [],
+            ENVP_KEY: [],
         }
 
-        key = 'argv'
+        key = ARGV_KEY
         words = []
         skip_char = False
         reading_word = False
@@ -204,13 +207,13 @@ class StraceTreePrinter:
             else:
                 if char == ']':
                     data[key] = words.copy()
-                    key = 'envp'
+                    key = ENVP_KEY
                     words.clear()
                 elif char == '"':
                     reading_word = True
                     word_chars.clear()
 
-        return data['argv'], data['envp']
+        return data[ARGV_KEY], data[ENVP_KEY]
 
     def write_envp_files(self) -> None:
         for pid, envp in self.envps.items():

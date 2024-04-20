@@ -46,6 +46,8 @@ ROOT_PATH is the path where the logs are located. Defaults to the working direct
 
 # Output
 
+The environment variables of processes are dumped in .envp files.
+
 The Output column tells if the command wrote to `stdout` or `stderr`.
 
 An exit status of "?" means the thread was terminated by another thread of the same thread group (see `exit_group(2)`).
