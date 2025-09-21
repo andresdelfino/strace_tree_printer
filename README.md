@@ -50,9 +50,9 @@ The environment variables of processes are dumped in .envp files.
 
 The Output column tells if the command wrote to `stdout` or `stderr`.
 
-An exit status of "?" means the thread was terminated by another thread of the same thread group (see `exit_group(2)`).
+A question mark exit status means the thread was terminated by another thread of the same thread group (see `exit_group(2)`).
 
-An exclamation mark following a pathname or argv means the preceding value mirrors the values of the child's parent, as no `execve(2)` call was found.
+An exclamation mark suffix on pathname and argv means the values mirror the values of the process's parent, as no `execve(2)` call was found.
 
 # See also
 
