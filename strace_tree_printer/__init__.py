@@ -105,10 +105,10 @@ class StraceTreePrinter:
 
         self.parents[self.root_pid] = '?'
 
-    def print_table(self) -> None:
-        for node in self.pids:
+        for node in self.pids_with_missing_info:
             self.add_missing_info(node)
 
+    def print_table(self) -> None:
         self.fill_table(self.root_pid)
 
         tabulate.PRESERVE_WHITESPACE = True
