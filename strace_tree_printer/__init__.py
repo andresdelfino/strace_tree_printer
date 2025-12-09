@@ -15,7 +15,6 @@ class StraceTreePrinter:
     EXIT_STATUS_RE = r'^(exit|exit_group)\((\d+)\)'
 
     INHERITED_MARK = '!'
-    UNKNOWN_MARK = '?'
 
     def __init__(self, *, root_path: str, prefix: str) -> None:
         self.root_path = root_path
@@ -25,25 +24,25 @@ class StraceTreePrinter:
         self.calls: dict[int, str] = {}
         self.child_pids: set[int] = set()
         self.childs: dict[int, list[int]] = collections.defaultdict(list)
-        self.data: list[tuple[str, str, str, str, int | Literal[self.UNKNOWN_MARK], str, str, int | Literal[self.UNKNOWN_MARK], str]] = []
+        self.data: list[tuple[str, str, str, str, int | Literal['?'], str, str, int | Literal['?'], str]] = []
         self.envps: dict[int, list[str]] = {}
-        self.exit_statuses: dict[int, int | Literal[self.UNKNOWN_MARK]] = {}
+        self.exit_statuses: dict[int, int | Literal['?']] = {}
         self.first_entries: dict[int, str] = {}
         self.last_entries: dict[int, str] = {}
-        self.parents: dict[int, int | Literal[self.UNKNOWN_MARK]] = {}
+        self.parents: dict[int, int | Literal['?']] = {}
         self.pathnames: dict[int, str] = {}
         self.pids_that_wrote_to_stderr: set[int] = set()
         self.pids_that_wrote_to_stdout: set[int] = set()
+        self.pids_with_missing_info: set[int] = set()
+        self.pids: set[int] = set()
 
     def run(self) -> None:
-        pids = set()
-
         globbing_pathname = os.path.join(self.root_path, f'{self.prefix}.*')
 
-        for file in glob.glob(globbing_pathname):
+        for file in glob.iglob(globbing_pathname):
             pid = int(file.split('.')[-1])
 
-            pids.add(pid)
+            self.pids.add(pid)
 
             with open(file) as f:
                 for line in f:
@@ -81,24 +80,35 @@ class StraceTreePrinter:
                         self.child_pids.add(child_pid)
                         continue
 
+            if pid not in self.pathnames:
+                self.pids_with_missing_info.add(pid)
+
             if pid not in self.exit_statuses:
-                self.exit_statuses[pid] = self.UNKNOWN_MARK
+                self.exit_statuses[pid] = '?'
 
             self.last_entries[pid] = timestamp
 
-        self.root_pid = (pids - self.child_pids).pop()
+        root_pids = self.pids - self.child_pids
+
+        if len(root_pids) != 1:
+            raise Exception(f'Expected exactly one root pid: {root_pids}')
+
+        self.root_pid = root_pids.pop()
 
         if self.root_pid in self.pathnames:
             self.calls[self.root_pid] = 'execve'
         else:
             # strace was run with --attach
-            self.pathnames[self.root_pid] = self.UNKNOWN_MARK
-            self.argvs[self.root_pid] = [self.UNKNOWN_MARK]
-            self.calls[self.root_pid] = self.UNKNOWN_MARK
+            self.pathnames[self.root_pid] = '?'
+            self.argvs[self.root_pid] = ['?']
+            self.calls[self.root_pid] = '?'
 
-        self.parents[self.root_pid] = self.UNKNOWN_MARK
+        self.parents[self.root_pid] = '?'
 
     def print_table(self) -> None:
+        for node in self.pids:
+            self.add_missing_info(node)
+
         self.fill_table(self.root_pid)
 
         tabulate.PRESERVE_WHITESPACE = True
@@ -120,6 +130,11 @@ class StraceTreePrinter:
 
         print(tabulated_data)
 
+    def add_missing_info(self, node: int) -> None:
+        elder_parent = self.find_elder_parent(node)
+        self.pathnames[node] = self.pathnames[elder_parent]
+        self.argvs[node] = self.argvs[elder_parent]
+
     def fill_table(self, node: int, level: int = 1) -> None:
         padding = ' ' * (level - 1) * 4
 
@@ -137,18 +152,13 @@ class StraceTreePrinter:
         stderr = 'err' if node in self.pids_that_wrote_to_stderr else '   '
         output = f'{stdout} {stderr}'
 
-        if node != self.root_pid and node not in self.pathnames:
-            elder_parent = self.find_elder_parent(node)
+        pathname = self.pathnames[node]
+        if node in self.pids_with_missing_info:
+            pathname += f' {self.INHERITED_MARK}'
 
-        if node in self.pathnames:
-            pathname = self.pathnames[node]
-        else:
-            pathname = self.pathnames[elder_parent] + f' {self.INHERITED_MARK}'
-
-        if node in self.argvs:
-            argv = ' '.join(self.argvs[node])
-        else:
-            argv = ' '.join(self.argvs[elder_parent]) + f' {self.INHERITED_MARK}'
+        argv = ' '.join(self.argvs[node])
+        if node in self.pids_with_missing_info:
+            argv += f' {self.INHERITED_MARK}'
 
         formatted_argv = padding + argv
 
@@ -170,7 +180,7 @@ class StraceTreePrinter:
             self.fill_table(child, level=level + 1)
 
     def find_elder_parent(self, node: int) -> int:
-        if self.parents[node] in self.pathnames:
+        if self.parents[node] not in self.pids_with_missing_info and self.parents[node] in self.pathnames:
             return self.parents[node]
         else:
             return self.find_elder_parent(self.parents[node])
