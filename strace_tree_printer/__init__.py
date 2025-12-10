@@ -91,7 +91,7 @@ class StraceTreePrinter:
         root_pids = self.pids - self.child_pids
 
         if len(root_pids) != 1:
-            raise Exception(f'Expected exactly one root pid: {root_pids}')
+            raise Exception(f'Expected exactly one root pid, got: {root_pids}. Log files from two strace runs may be getting mixed.')
 
         self.root_pid = root_pids.pop()
 
